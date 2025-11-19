@@ -1,0 +1,237 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Vue Weather Dashboard</title>
+    <link rel="icon" href="../portfolio/assets/weather.png" />
+
+    <!-- Vue 3 CDN -->
+    <script src="https://unpkg.com/vue@3/dist/vue.global.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/axios/dist/axios.min.js"></script>
+
+    <style>
+      body {
+        font-family: "Poppins", sans-serif;
+        background: linear-gradient(135deg, #007bff, #00b4d8);
+        color: #fff;
+        min-height: 100vh;
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        padding: 20px;
+        box-sizing: border-box;
+      }
+
+      .app {
+        background: rgba(255, 255, 255, 0.1);
+        border-radius: 15px;
+        padding: 30px;
+        width: 90%;
+        max-width: 400px;
+        text-align: center;
+        box-shadow: 0 4px 10px rgba(0, 0, 0, 0.2);
+        position: relative;
+      }
+
+      h1 {
+        margin-bottom: 20px;
+        font-size: 1.8rem;
+      }
+
+      input {
+        width: 100%;
+        padding: 10px;
+        border: none;
+        border-radius: 8px;
+        outline: none;
+        font-size: 1rem;
+        margin-bottom: 15px;
+      }
+
+      .suggestions {
+        position: absolute;
+        top: 75px;
+        left: 30px;
+        right: 30px;
+        background: #fff;
+        color: #000;
+        border-radius: 8px;
+        max-height: 150px;
+        overflow-y: auto;
+        z-index: 10;
+        box-shadow: 0 2px 6px rgba(0, 0, 0, 0.2);
+        padding: 0;
+        margin: 0;
+      }
+
+      .suggestions li {
+        list-style: none;
+        padding: 10px;
+        cursor: pointer;
+      }
+
+      .suggestions li:hover {
+        background: #eee;
+      }
+
+      button {
+        background: #fff;
+        color: #007bff;
+        border: none;
+        padding: 10px 20px;
+        border-radius: 8px;
+        cursor: pointer;
+        font-weight: bold;
+        transition: 0.3s;
+      }
+
+      button:hover {
+        background: #e6e6e6;
+      }
+
+      .weather-info {
+        margin-top: 25px;
+        background: rgba(0, 0, 0, 0.2);
+        border-radius: 10px;
+        padding: 15px;
+      }
+
+      .weather-info h2 {
+        margin-bottom: 10px;
+        font-size: 1.5rem;
+      }
+
+      .error {
+        color: #ff4d4d;
+        font-weight: 600;
+        margin-top: 12px;
+      }
+
+      .loading {
+        margin-top: 12px;
+        font-weight: 600;
+      }
+    </style>
+  </head>
+  <body>
+    <div id="app" class="app">
+      <h1>🌤 Weather Dashboard</h1>
+
+      <input
+        v-model="city"
+        placeholder="Enter city name..."
+        @input="fetchSuggestions"
+      />
+
+      <ul v-if="suggestions.length" class="suggestions">
+        <li
+          v-for="(item, index) in suggestions"
+          :key="index"
+          @click="selectCity(item)"
+        >
+          {{ item.name }}{{ item.state ? ', ' + item.state : '' }}, {{
+          item.country }}
+        </li>
+      </ul>
+
+      <button @click="getWeather">Search</button>
+
+      <div v-if="loading" class="loading">Loading weather data...</div>
+      <div v-if="error" class="error">{{ error }}</div>
+
+      <div v-if="weatherData" class="weather-info">
+        <h2>{{ weatherData.name }}, {{ weatherData.sys.country }}</h2>
+        <p>
+          <strong>Temperature:</strong> {{ (weatherData.main.temp -
+          273.15).toFixed(1) }}°C
+        </p>
+        <p><strong>Condition:</strong> {{ weatherData.weather[0].main }}</p>
+        <p><strong>Humidity:</strong> {{ weatherData.main.humidity }}%</p>
+        <p><strong>Wind Speed:</strong> {{ weatherData.wind.speed }} m/s</p>
+      </div>
+    </div>
+
+    <script>
+      const { createApp, ref } = Vue;
+
+      createApp({
+        setup() {
+          const city = ref("");
+          const suggestions = ref([]);
+          const weatherData = ref(null);
+          const loading = ref(false);
+          const error = ref("");
+          const apiKey = "94670d2ecc819c0ebe8bc59ac93ee0f2"; // Your OpenWeatherMap API key
+
+          // Fetch city suggestions using OpenWeatherMap Geocoding API
+          const fetchSuggestions = async () => {
+            if (!city.value.trim()) {
+              suggestions.value = [];
+              return;
+            }
+            try {
+              const response = await axios.get(
+                "https://api.openweathermap.org/geo/1.0/direct",
+                {
+                  params: {
+                    q: city.value,
+                    limit: 5,
+                    appid: apiKey,
+                  },
+                }
+              );
+              suggestions.value = response.data;
+            } catch (err) {
+              console.error(err);
+            }
+          };
+
+          const selectCity = (item) => {
+            city.value = `${item.name}${item.state ? ", " + item.state : ""}, ${
+              item.country
+            }`;
+            suggestions.value = [];
+            getWeather();
+          };
+
+          const getWeather = async () => {
+            if (!city.value.trim()) return;
+            loading.value = true;
+            error.value = "";
+            weatherData.value = null;
+
+            try {
+              const response = await axios.get(
+                "https://api.openweathermap.org/data/2.5/weather",
+                {
+                  params: {
+                    q: city.value,
+                    appid: apiKey,
+                  },
+                }
+              );
+              weatherData.value = response.data;
+            } catch (err) {
+              console.error(err);
+              error.value = "City not found or invalid API key.";
+            } finally {
+              loading.value = false;
+            }
+          };
+
+          return {
+            city,
+            suggestions,
+            weatherData,
+            loading,
+            error,
+            fetchSuggestions,
+            selectCity,
+            getWeather,
+          };
+        },
+      }).mount("#app");
+    </script>
+  </body>
+</html>
